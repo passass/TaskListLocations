@@ -231,44 +231,75 @@ namespace Passass.TaskListLocations
             return false;
         }
         public static int sortCompare(
-            string ___locationId
-            , QuestClass quest1
-            , QuestClass quest2
-        )
+            string ___locationId,
+            QuestClass quest1,
+            QuestClass quest2)
         {
             if (HandleNullOrEqualQuestCompare(quest1, quest2, out int is_equal_result))
             {
                 return is_equal_result;
             }
 
-            // Получаем QuestLocation для обоих квестов
             QuestLocation location1 = QuestLocation.FromQuestClass(quest1);
             QuestLocation location2 = QuestLocation.FromQuestClass(quest2);
 
-            // Если один null, другой нет - null идет последним
-            if (location1 == null && location2 != null)
-                return 1;
-            if (location1 != null && location2 == null)
-                return -1;
+            // Проверяем, содержит ли квест искомую локацию
+            bool quest1HasLocation = IsQuestMatchesLocation(quest1, location1, ___locationId);
+            bool quest2HasLocation = IsQuestMatchesLocation(quest2, location2, ___locationId);
 
-            // Если оба null - сортируем по трейдеру/имени/времени
+            if (quest1HasLocation != quest2HasLocation)
+            {
+                return quest1HasLocation ? 1 : -1;
+            }
+
+            return SortByOtherCriteria(quest1, quest2, location1, location2);
+        }
+
+        private static bool IsQuestMatchesLocation(
+            QuestClass quest,
+            QuestLocation location,
+            string locationId)
+        {
+            if (location == null)
+                return false;
+
+            if (quest.Template.LocationId == locationId)
+                return true;
+
+            if (location.Type == QuestLocation.QuestType.Locations &&
+                location.Locations != null &&
+                location.Locations.Contains(locationId))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static int SortByOtherCriteria(
+            QuestClass quest1,
+            QuestClass quest2,
+            QuestLocation location1,
+            QuestLocation location2)
+        {
             if (location1 == null && location2 == null)
             {
                 return SortByTraderNameTime(quest1, quest2);
             }
 
-            // Оба не null - сортируем по приоритету типа
+            if (location1 == null && location2 != null)
+                return 1;
+            if (location1 != null && location2 == null)
+                return -1;
+
             int priority1 = GetLocationPriority(location1.Type);
             int priority2 = GetLocationPriority(location2.Type);
 
             if (priority1 != priority2)
                 return priority1.CompareTo(priority2);
 
-            // Приоритеты равны - значит типы одинаковые (или имеют одинаковый приоритет)
-            // Сортируем по локациям внутри типа
             if (location1.Type == location2.Type)
             {
-                // Для типов с локациями - сортируем по первой локации
                 if (location1.Locations != null && location2.Locations != null &&
                     location1.Locations.Count > 0 && location2.Locations.Count > 0)
                 {
@@ -280,18 +311,15 @@ namespace Passass.TaskListLocations
                         return locCompare;
                 }
 
-                // Если локации одинаковые или отсутствуют - по трейдеру/имени/времени
                 return SortByTraderNameTime(quest1, quest2);
             }
 
-            // Типы разные, но приоритеты равные - сортируем по локализованному названию
             return string.CompareOrdinal(
                 location1.GetLocalized(),
                 location2.GetLocalized()
             );
         }
 
-        // Вспомогательный метод для сортировки по трейдеру/имени/времени
         private static int SortByTraderNameTime(QuestClass quest1, QuestClass quest2)
         {
             string traderId1 = quest1.Template.TraderId;
