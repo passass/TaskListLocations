@@ -1,29 +1,19 @@
-﻿using Arena.UI;
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Logging;
-using Comfort.Common;
 using EFT;
 using EFT.InventoryLogic;
 using EFT.UI;
 using HarmonyLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using SPT.Custom.Utils;
 using SPT.Reflection.Patching;
-using SPT.Reflection.Utils;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
 using TMPro;
-using UnityEngine;
-using static EFT.SpeedTree.TreeWind;
-
 
 namespace Passass.TaskListLocations
 {
@@ -47,15 +37,12 @@ namespace Passass.TaskListLocations
                 testPatch.InitTypes(this);
                 testPatch.Enable();
             }
-		}
-	};
-
-	
-
+        }
+    };
 
     public class QuestLocation
-	{
-        private static Dictionary<string, QuestLocation> questLocations { get; set; } = null;
+    {
+        private static Dictionary<string, QuestLocation> QuestLocations { get; set; } = null;
 
         public static void InitQuests()
         {
@@ -63,7 +50,7 @@ namespace Passass.TaskListLocations
             {
 
                 string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                string QuestsPath = Path.Combine(PluginFolder, "quests.json");
+                string QuestsPath = Path.Combine(PluginFolder, "quest_locations.json");
                 string jsonString = File.ReadAllText(QuestsPath);
 
                 var settings = new JsonSerializerSettings
@@ -75,16 +62,18 @@ namespace Passass.TaskListLocations
                     NullValueHandling = NullValueHandling.Ignore
                 };
 
-                questLocations = JsonConvert.DeserializeObject<Dictionary<string, QuestLocation>>(jsonString, settings);
-            } catch (Exception ex) {
+                QuestLocations = JsonConvert.DeserializeObject<Dictionary<string, QuestLocation>>(jsonString, settings);
+            }
+            catch (Exception ex)
+            {
                 Plugin.Log.LogInfo("FILE READING ERROR: " + ex.Message);
-                questLocations = new Dictionary<string, QuestLocation>();
+                QuestLocations = new Dictionary<string, QuestLocation>();
             }
         }
 
-        public static QuestLocation FromQuestClass(QuestClass Quest)
+        public static QuestLocation FromQuestClass(EFT.Quests.Quest Quest)
         {
-            if (questLocations.TryGetValue(Quest.Id, out QuestLocation value))
+            if (QuestLocations.TryGetValue(Quest.Id, out QuestLocation value))
             {
                 return value;
             }
@@ -93,11 +82,13 @@ namespace Passass.TaskListLocations
 
             if (existing_location_id != "any")
             {
-                QuestLocation questLocation = new QuestLocation();
-                questLocation.Type = QuestType.Locations;
-                questLocation.Locations = new List<string> { existing_location_id };
+                QuestLocation questLocation = new QuestLocation
+                {
+                    Type = QuestType.Locations,
+                    Locations = new List<string> { existing_location_id }
+                };
 
-                questLocations.Add(Quest.Id, questLocation);
+                QuestLocations.Add(Quest.Id, questLocation);
 
                 return questLocation;
             }
@@ -129,14 +120,14 @@ namespace Passass.TaskListLocations
 
         [JsonProperty("type")]
         public QuestType Type { get; set; }
-        
+
         [JsonProperty("locations")]
         public List<string> Locations { get; set; } = null;
-        
+
         [JsonIgnore]
         public string LocalizedText { get; set; } = null;
-		public string GetLocalized()
-		{
+        public string GetLocalized()
+        {
             if (LocalizedText != null)
                 return LocalizedText;
 
@@ -154,28 +145,28 @@ namespace Passass.TaskListLocations
                     }
                     string result = sb.ToString().TrimEnd(',', ' ');
                     if (Type == QuestType.LocationExcluding)
-                        LocalizedText = (LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Все кроме " : "Any location except") + result;
+                        LocalizedText = (LocalizationManager.DefaultLanguage == "ru" ? "Все кроме " : "Any location except") + result;
                     else
                         LocalizedText = result;
                     break;
                 case QuestType.FindInRaid:
-                    LocalizedText = LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Найти в рейде" :  "Found in raid";
+                    LocalizedText = LocalizationManager.DefaultLanguage == "ru" ? "Найти в рейде" : "Found in raid";
                     break;
                 case QuestType.Stash:
                     LocalizedText = Utils.Capitalize(Utils.GetLocalizedText("STASH"));
                     break;
                 case QuestType.ManyLocation:
-                    LocalizedText = LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Множество локаций" : "Many Locations";
+                    LocalizedText = LocalizationManager.DefaultLanguage == "ru" ? "Множество локаций" : "Many Locations";
                     break;
                 case QuestType.AnyLocation:
                     LocalizedText = Utils.GetLocalizedText("any Name");
                     break;
             }
             return LocalizedText;
-		}
-	}
-	
-	class TestPatch : ModulePatch
+        }
+    }
+
+    class TestPatch : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
         {
@@ -207,7 +198,7 @@ namespace Passass.TaskListLocations
             return (string)_stringLocalizedMethod.Invoke(null, new object[] { input, null });
         }
 
-        public static bool HandleNullOrEqualQuestCompare(QuestClass quest1, QuestClass quest2, out int result)
+        public static bool HandleNullOrEqualQuestCompare(EFT.Quests.Quest quest1, EFT.Quests.Quest quest2, out int result)
         {
             if (quest1 == quest2)
             {
@@ -230,10 +221,10 @@ namespace Passass.TaskListLocations
             result = 0;
             return false;
         }
-        public static int sortCompare(
+        public static int SortCompare(
             string ___locationId,
-            QuestClass quest1,
-            QuestClass quest2)
+            EFT.Quests.Quest quest1,
+            EFT.Quests.Quest quest2)
         {
             if (HandleNullOrEqualQuestCompare(quest1, quest2, out int is_equal_result))
             {
@@ -256,7 +247,7 @@ namespace Passass.TaskListLocations
         }
 
         private static bool IsQuestMatchesLocation(
-            QuestClass quest,
+            EFT.Quests.Quest quest,
             QuestLocation location,
             string locationId)
         {
@@ -277,8 +268,8 @@ namespace Passass.TaskListLocations
         }
 
         private static int SortByOtherCriteria(
-            QuestClass quest1,
-            QuestClass quest2,
+            EFT.Quests.Quest quest1,
+            EFT.Quests.Quest quest2,
             QuestLocation location1,
             QuestLocation location2)
         {
@@ -320,7 +311,7 @@ namespace Passass.TaskListLocations
             );
         }
 
-        private static int SortByTraderNameTime(QuestClass quest1, QuestClass quest2)
+        private static int SortByTraderNameTime(EFT.Quests.Quest quest1, EFT.Quests.Quest quest2)
         {
             string traderId1 = quest1.Template.TraderId;
             string traderId2 = quest2.Template.TraderId;
@@ -372,11 +363,11 @@ namespace Passass.TaskListLocations
         public static bool PatchPrefix(
             ref int __result
             , ref string ___locationId
-            , QuestClass quest1
-            , QuestClass quest2
+            , EFT.Quests.Quest quest1
+            , EFT.Quests.Quest quest2
         )
         {
-            __result = sortCompare(
+            __result = SortCompare(
                 ___locationId
                 , quest1
                 , quest2
@@ -392,18 +383,18 @@ namespace Passass.TaskListLocations
         {
             return AccessTools.Method(typeof(NotesTask), "Show");
         }
-		
+
         [PatchPostfix]
         public static void PatchPostfix(
-            NotesTask __instance
-			, QuestClass quest
-			, ISession session
-			, InventoryController inventoryController
-			, AbstractQuestControllerClass questController
-			, NotesTaskDescriptionShort description
-			, GClass3794 favoriteQuests
-			, bool availability
-            , ref TextMeshProUGUI ____locationLabel
+            NotesTask __instance,
+            EFT.Quests.Quest quest,
+            IEftSession session,
+            InventoryController inventoryController,
+            EFT.Quests.QuestController questController,
+            NotesTaskDescriptionShort description,
+            FavoriteQuestManager favoriteQuests,
+            bool availability,
+            ref TextMeshProUGUI ____locationLabel
         )
         {
             QuestLocation questLocation = QuestLocation.FromQuestClass(quest);
