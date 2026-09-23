@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EFT;
+using System;
 using System.Linq;
 using System.Reflection;
 
@@ -124,7 +125,7 @@ namespace Passass.TaskListLocations
         }
         public static BindingFlags FieldTypes = BindingFlags.Public | BindingFlags.NonPublic |
         BindingFlags.Instance | BindingFlags.Static;
-        public static string GetLocalizedText(string text) => GClass2348.Localized(text);
+        public static string GetLocalizedText(string text) => text.Localized();
 
         public static bool NamespaceExists(string namespaceName)
         {

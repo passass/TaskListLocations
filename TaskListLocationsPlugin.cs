@@ -4,6 +4,7 @@ using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
 using EFT.InventoryLogic;
+using EFT.Quests;
 using EFT.UI;
 using HarmonyLib;
 using Newtonsoft.Json;
@@ -82,7 +83,7 @@ namespace Passass.TaskListLocations
             }
         }
 
-        public static QuestLocation FromQuestClass(QuestClass Quest)
+        public static QuestLocation FromQuestClass(Quest Quest)
         {
             if (questLocations.TryGetValue(Quest.Id, out QuestLocation value))
             {
@@ -93,9 +94,11 @@ namespace Passass.TaskListLocations
 
             if (existing_location_id != "any")
             {
-                QuestLocation questLocation = new QuestLocation();
-                questLocation.Type = QuestType.Locations;
-                questLocation.Locations = new List<string> { existing_location_id };
+                QuestLocation questLocation = new QuestLocation
+                {
+                    Type = QuestType.Locations,
+                    Locations = new List<string> { existing_location_id }
+                };
 
                 questLocations.Add(Quest.Id, questLocation);
 
@@ -140,6 +143,7 @@ namespace Passass.TaskListLocations
             if (LocalizedText != null)
                 return LocalizedText;
 
+            string currentLanguage = LocalizationManager.Instance.Culture;
             switch (Type)
             {
                 case QuestType.LocationExcluding:
@@ -154,18 +158,18 @@ namespace Passass.TaskListLocations
                     }
                     string result = sb.ToString().TrimEnd(',', ' ');
                     if (Type == QuestType.LocationExcluding)
-                        LocalizedText = (LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Все кроме " : "Any location except") + result;
+                        LocalizedText = (currentLanguage == "ru" ? "Все кроме " : "Any location except") + result;
                     else
                         LocalizedText = result;
                     break;
                 case QuestType.FindInRaid:
-                    LocalizedText = LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Найти в рейде" :  "Found in raid";
+                    LocalizedText = currentLanguage == "ru" ? "Найти в рейде" :  "Found in raid";
                     break;
                 case QuestType.Stash:
                     LocalizedText = Utils.Capitalize(Utils.GetLocalizedText("STASH"));
                     break;
                 case QuestType.ManyLocation:
-                    LocalizedText = LocaleManagerClass.LocaleManagerClass.String_2 == "ru" ? "Множество локаций" : "Many Locations";
+                    LocalizedText = currentLanguage == "ru" ? "Множество локаций" : "Many Locations";
                     break;
                 case QuestType.AnyLocation:
                     LocalizedText = Utils.GetLocalizedText("any Name");
@@ -207,7 +211,7 @@ namespace Passass.TaskListLocations
             return (string)_stringLocalizedMethod.Invoke(null, new object[] { input, null });
         }
 
-        public static bool HandleNullOrEqualQuestCompare(QuestClass quest1, QuestClass quest2, out int result)
+        public static bool HandleNullOrEqualQuestCompare(Quest quest1, Quest quest2, out int result)
         {
             if (quest1 == quest2)
             {
@@ -232,8 +236,8 @@ namespace Passass.TaskListLocations
         }
         public static int sortCompare(
             string ___locationId,
-            QuestClass quest1,
-            QuestClass quest2)
+            Quest quest1,
+            Quest quest2)
         {
             if (HandleNullOrEqualQuestCompare(quest1, quest2, out int is_equal_result))
             {
@@ -256,7 +260,7 @@ namespace Passass.TaskListLocations
         }
 
         private static bool IsQuestMatchesLocation(
-            QuestClass quest,
+            Quest quest,
             QuestLocation location,
             string locationId)
         {
@@ -277,8 +281,8 @@ namespace Passass.TaskListLocations
         }
 
         private static int SortByOtherCriteria(
-            QuestClass quest1,
-            QuestClass quest2,
+            Quest quest1,
+            Quest quest2,
             QuestLocation location1,
             QuestLocation location2)
         {
@@ -320,7 +324,7 @@ namespace Passass.TaskListLocations
             );
         }
 
-        private static int SortByTraderNameTime(QuestClass quest1, QuestClass quest2)
+        private static int SortByTraderNameTime(Quest quest1, Quest quest2)
         {
             string traderId1 = quest1.Template.TraderId;
             string traderId2 = quest2.Template.TraderId;
@@ -372,8 +376,8 @@ namespace Passass.TaskListLocations
         public static bool PatchPrefix(
             ref int __result
             , ref string ___locationId
-            , QuestClass quest1
-            , QuestClass quest2
+            , Quest quest1
+            , Quest quest2
         )
         {
             __result = sortCompare(
@@ -395,14 +399,7 @@ namespace Passass.TaskListLocations
 		
         [PatchPostfix]
         public static void PatchPostfix(
-            NotesTask __instance
-			, QuestClass quest
-			, ISession session
-			, InventoryController inventoryController
-			, AbstractQuestControllerClass questController
-			, NotesTaskDescriptionShort description
-			, GClass3794 favoriteQuests
-			, bool availability
+            Quest quest, IEftSession session, InventoryController inventoryController, QuestController questController, NotesTaskDescriptionShort description, FavoriteQuestManager favoriteQuests, bool availability
             , ref TextMeshProUGUI ____locationLabel
         )
         {
